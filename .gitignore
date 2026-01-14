@@ -24,3 +24,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ArgoCD 설정 파일 (Git에 올리면 안됨)
+argocd/
