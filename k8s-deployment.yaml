@@ -83,10 +83,11 @@ metadata:
   labels:
     app: library-backend
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
   - port: 8000
     targetPort: 8000
+    nodePort: 31000
     protocol: TCP
     name: http
   selector:
