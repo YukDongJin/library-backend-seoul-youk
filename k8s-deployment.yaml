@@ -1,0 +1,102 @@
+# 서울 리전 (ap-northeast-2) 배포용
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: library-backend
+  namespace: default
+  labels:
+    app: library-backend
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: library-backend
+  template:
+    metadata:
+      labels:
+        app: library-backend
+        version: v1
+    spec:
+      serviceAccountName: library-service-account
+      containers:
+      - name: library
+        image: 324547056370.dkr.ecr.ap-northeast-2.amazonaws.com/library-api:latest
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: DEBUG
+          value: "false"
+        - name: HOST
+          value: "0.0.0.0"
+        - name: PORT
+          value: "8000"
+        # DB 정보는 Secrets Manager에서 가져옴 (시크릿명: database)
+        - name: USE_SECRETS_MANAGER
+          value: "true"
+        - name: DB_SECRET_NAME
+          value: "database"
+        - name: AWS_REGION
+          value: "ap-northeast-2"
+        - name: S3_BUCKET_NAME
+          value: "knowledge-base-test-6575574"
+        - name: ALLOWED_ORIGINS
+          value: "https://www.aws11.shop,https://aws11.shop,http://localhost:3000"
+        - name: COGNITO_USER_POOL_ID
+          value: "ap-northeast-2_mFvtIc1kQ"
+        - name: COGNITO_CLIENT_ID
+          value: "3c0kds3554rvakp9piqv694at2"
+        - name: BACKEND_BASE_URL
+          value: "https://api.aws11.shop"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /library/health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /library/health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: library-backend-service
+  namespace: default
+  labels:
+    app: library-backend
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: library-backend
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: library-service-account
+  namespace: default
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::324547056370:role/library-secrets-role
