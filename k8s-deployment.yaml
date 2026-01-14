@@ -7,7 +7,6 @@ metadata:
   labels:
     app: library-backend
     version: v1
-    test-deploy: "1"
 spec:
   replicas: 2
   selector:
