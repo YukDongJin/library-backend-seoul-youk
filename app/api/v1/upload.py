@@ -304,12 +304,13 @@ async def preview_generation_callback(
     item_id: str = Form(...),
     preview_key: str = Form(...),
     thumbnail_key: Optional[str] = Form(None),
+    subtitle_key: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db)
 ) -> SuccessResponse[Dict[str, str]]:
     """
     프리뷰 생성 완료 콜백 API
     - Step Functions 완료 후 Lambda에서 호출
-    - DB에 프리뷰 키 및 썸네일 키 업데이트
+    - DB에 프리뷰 키, 썸네일 키, 자막 키 업데이트
     """
     try:
         # 아이템 조회
@@ -328,6 +329,11 @@ async def preview_generation_callback(
             item.s3_thumbnail_key = thumbnail_key
             logger.info(f"썸네일 키 업데이트: {item_id} -> {thumbnail_key}")
         
+        # 자막 키 업데이트 (있는 경우)
+        if subtitle_key:
+            item.s3_subtitle_key = subtitle_key
+            logger.info(f"자막 키 업데이트: {item_id} -> {subtitle_key}")
+        
         await db.commit()
         await db.refresh(item)
         
@@ -341,6 +347,9 @@ async def preview_generation_callback(
         
         if thumbnail_key:
             result["thumbnail_key"] = thumbnail_key
+        
+        if subtitle_key:
+            result["subtitle_key"] = subtitle_key
         
         return SuccessResponse(
             data=result,
