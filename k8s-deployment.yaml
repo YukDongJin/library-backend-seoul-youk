@@ -48,7 +48,7 @@ spec:
         - name: COGNITO_USER_POOL_ID
           value: "ap-northeast-2_mFvtIc1kQ"
         - name: COGNITO_CLIENT_ID
-          value: "3c0kds3554rvakp9piqv694at2"
+          value: "1k4b57manq0r67vdit9bu4u8dc"
         - name: BACKEND_BASE_URL
           value: "https://kr.aws11.shop"
         - name: VIDEO_PREVIEW_STATE_MACHINE_ARN
