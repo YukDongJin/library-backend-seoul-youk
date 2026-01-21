@@ -42,7 +42,7 @@ spec:
         - name: AWS_REGION
           value: "ap-northeast-2"
         - name: S3_BUCKET_NAME
-          value: "knowledge-base-test-6575574"
+          value: "fproject-s3-1234567"
         - name: ALLOWED_ORIGINS
           value: "https://www.aws11.shop,https://web.aws11.shop,http://localhost:3000"
         - name: COGNITO_USER_POOL_ID
