@@ -50,7 +50,7 @@ spec:
         - name: COGNITO_CLIENT_ID
           value: "1k4b57manq0r67vdit9bu4u8dc"
         - name: BACKEND_BASE_URL
-          value: "https://kr.aws11.shop"
+          value: "https://api.aws11.shop"
         - name: VIDEO_PREVIEW_STATE_MACHINE_ARN
           value: "arn:aws:states:ap-northeast-2:324547056370:stateMachine:Preview_thumbnail_library"
         - name: S3_REGION
