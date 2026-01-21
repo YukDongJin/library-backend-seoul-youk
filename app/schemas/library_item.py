@@ -126,6 +126,7 @@ class LibraryItemResponse(LibraryItemBase):
     s3_thumbnail_key: Optional[str] = Field(None, description="S3 썸네일 키")
     s3_preview_key: Optional[str] = Field(None, description="S3 프리뷰 영상 키")
     s3_subtitle_key: Optional[str] = Field(None, description="S3 자막 파일 키")
+    s3_transcribe_key: Optional[str] = Field(None, description="S3 Transcribe 결과 파일 키")
     file_size: int = Field(description="파일 크기 (bytes)")
     original_filename: str = Field(description="원본 파일명")
     preview_text: Optional[str] = Field(None, description="미리보기 텍스트")

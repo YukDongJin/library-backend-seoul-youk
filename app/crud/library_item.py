@@ -213,6 +213,10 @@ class CRUDLibraryItem(CRUDBase[LibraryItem, LibraryItemCreate, LibraryItemUpdate
         if item.s3_subtitle_key:
             await s3_service.delete_file(item.s3_subtitle_key)
         
+        # Transcribe 결과 파일 삭제 (있는 경우)
+        if item.s3_transcribe_key:
+            await s3_service.delete_file(item.s3_transcribe_key)
+        
         if soft_delete:
             return await self.soft_delete(db, id=item_id)
         else:

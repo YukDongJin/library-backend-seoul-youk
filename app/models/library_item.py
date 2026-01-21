@@ -99,6 +99,13 @@ class LibraryItem(Base):
         comment="S3 자막 파일 키 (비디오만, VTT 형식)"
     )
     
+    # S3 Transcribe 결과 파일 키 (비디오만 해당)
+    s3_transcribe_key = Column(
+        String(500),
+        nullable=True,
+        comment="S3 Transcribe 결과 파일 키 (비디오만, JSON 형식)"
+    )
+    
     # S3 원본 파일 키
     s3_key = Column(
         String(500),
@@ -219,6 +226,8 @@ class LibraryItem(Base):
             "visibility": self.visibility.value,
             "s3_thumbnail_key": self.s3_thumbnail_key,
             "s3_preview_key": self.s3_preview_key,
+            "s3_subtitle_key": self.s3_subtitle_key,
+            "s3_transcribe_key": self.s3_transcribe_key,
             "s3_key": self.s3_key,
             "file_size": self.file_size,
             "preview_text": self.preview_text,
