@@ -59,6 +59,7 @@ async def create_library_item(
     """
     라이브러리 아이템 생성 API
     - S3 업로드 완료 후 메타데이터 저장
+    - 동영상인 경우 프리뷰/썸네일 생성 Step Functions 자동 트리거
     """
     try:
         user_id, username = await resolve_current_user(db, current_user)
@@ -69,6 +70,18 @@ async def create_library_item(
         )
         
         logger.info(f"새 라이브러리 아이템 생성: {item.name} (사용자: {username})")
+        
+        # 동영상인 경우 프리뷰/썸네일 생성 Step Functions 트리거
+        execution_arn = None
+        if item_in.type == ItemType.video or (item_in.mime_type and item_in.mime_type.startswith('video/')):
+            execution_arn = await s3_service.trigger_video_preview_generation(
+                s3_key=item_in.s3_key,
+                item_id=str(item.id)
+            )
+            if execution_arn:
+                logger.info(f"🎬 동영상 프리뷰 생성 Step Functions 시작: {execution_arn}")
+            else:
+                logger.warning(f"⚠️ 동영상 프리뷰 생성 Step Functions 트리거 실패")
         
         return SuccessResponse(
             data=LibraryItemResponse.from_orm(item),
@@ -99,6 +112,7 @@ async def get_my_library_items(
 ) -> PaginatedResponse[LibraryItemResponse]:
     """
     내 라이브러리 아이템 목록 조회 API
+    - S3에서 파일이 삭제된 경우 자동으로 soft delete 처리
     """
     try:
         user_id, _ = await resolve_current_user(db, current_user)
@@ -120,18 +134,57 @@ async def get_my_library_items(
                 db, user_id=user_id, item_type=item_type
             )
         else:
-            # 일반 목록 조회
+            # 일반 목록 조회 (자동 복원을 위해 삭제된 아이템도 함께 조회)
             items = await library_item_crud.get_by_user(
                 db, user_id=user_id,
                 skip=commons.skip, limit=commons.limit,
-                include_deleted=include_deleted
+                include_deleted=True  # 자동 복원을 위해 항상 True
             )
             total = await library_item_crud.count_user_items(
-                db, user_id=user_id, include_deleted=include_deleted
+                db, user_id=user_id, include_deleted=False  # 활성 아이템 수만 카운트
             )
         
+        # S3 파일 존재 여부 확인 및 자동 동기화
+        valid_items = []
+        deleted_count = 0
+        restored_count = 0
+        
+        for item in items:
+            s3_exists = s3_service.file_exists(item.s3_key)
+            
+            # S3에 파일이 존재하는 경우
+            if s3_exists:
+                # DB에서 삭제된 상태였다면 자동 복원
+                if item.deleted_at is not None:
+                    logger.info(f"🔄 S3 파일 복구 감지, 자동 복원: {item.s3_key} (아이템: {item.name})")
+                    await library_item_crud.restore(db, id=str(item.id))
+                    restored_count += 1
+                    # 복원된 아이템 다시 조회
+                    item = await library_item_crud.get(db, id=str(item.id))
+                
+                # 사용자가 삭제된 아이템 포함을 요청했거나, 활성 아이템인 경우만 반환
+                if include_deleted or item.deleted_at is None:
+                    valid_items.append(item)
+            else:
+                # S3에 파일이 없으면 자동으로 soft delete 처리
+                if item.deleted_at is None:
+                    logger.warning(f"⚠️ S3 파일 없음, 자동 soft delete: {item.s3_key} (아이템: {item.name})")
+                    await library_item_crud.soft_delete(db, id=str(item.id))
+                    deleted_count += 1
+        
+        if deleted_count > 0:
+            logger.info(f"🗑️ S3에서 삭제된 파일 {deleted_count}개 자동 정리 완료")
+        
+        if restored_count > 0:
+            logger.info(f"✅ S3에서 복구된 파일 {restored_count}개 자동 복원 완료")
+        
+        # 최종 total 재계산 (복원/삭제 반영)
+        total = await library_item_crud.count_user_items(
+            db, user_id=user_id, include_deleted=include_deleted
+        )
+        
         # 페이지네이션 정보 계산
-        pages = (total + commons.limit - 1) // commons.limit
+        pages = max(1, (total + commons.limit - 1) // commons.limit)
         current_page = (commons.skip // commons.limit) + 1
         
         pagination_info = PaginationInfo(
@@ -144,7 +197,7 @@ async def get_my_library_items(
         )
         
         # 각 아이템을 응답 형식으로 변환 (file_url은 모델 property에서 자동 생성)
-        response_items = [LibraryItemResponse.from_orm(item) for item in items]
+        response_items = [LibraryItemResponse.from_orm(item) for item in valid_items]
         
         return PaginatedResponse(
             data=response_items,

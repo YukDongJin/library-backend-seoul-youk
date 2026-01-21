@@ -197,7 +197,7 @@ async def health_check_legacy():
     )
 
 
-# API 라우터 포함 (/library 경로)
+# API v1 라우터 포함 (/library 경로 - api/v1 제거)
 app.include_router(
     api_router,
     prefix="/library"

@@ -18,6 +18,8 @@ spec:
         app: library-backend
         version: v1
     spec:
+      nodeSelector:
+        karpenter.sh/nodepool: default
       serviceAccountName: library-service-account
       containers:
       - name: library
@@ -48,7 +50,11 @@ spec:
         - name: COGNITO_CLIENT_ID
           value: "3c0kds3554rvakp9piqv694at2"
         - name: BACKEND_BASE_URL
-          value: "https://api.aws11.shop"
+          value: "https://kr.aws11.shop"
+        - name: VIDEO_PREVIEW_STATE_MACHINE_ARN
+          value: "arn:aws:states:ap-northeast-2:324547056370:stateMachine:Preview_thumbnail_library"
+        - name: S3_REGION
+          value: "ap-northeast-2"
         resources:
           requests:
             memory: "256Mi"
