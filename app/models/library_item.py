@@ -92,6 +92,13 @@ class LibraryItem(Base):
         comment="S3 프리뷰 영상 파일 키 (비디오만)"
     )
     
+    # S3 자막 파일 키 (비디오만 해당)
+    s3_subtitle_key = Column(
+        String(500),
+        nullable=True,
+        comment="S3 자막 파일 키 (비디오만, VTT 형식)"
+    )
+    
     # S3 원본 파일 키
     s3_key = Column(
         String(500),
@@ -184,6 +191,14 @@ class LibraryItem(Base):
             return f"{settings.BACKEND_BASE_URL}/library/library-items/file/{self.s3_preview_key}"
         return None
 
+    @property
+    def subtitle_url(self):
+        """S3 자막 파일 프록시 URL 생성"""
+        if self.s3_subtitle_key:
+            from app.core.config import settings
+            return f"{settings.BACKEND_BASE_URL}/library/library-items/file/{self.s3_subtitle_key}"
+        return None
+
     def soft_delete(self):
         """소프트 삭제 실행"""
         from datetime import datetime
@@ -211,6 +226,7 @@ class LibraryItem(Base):
             "file_url": self.file_url,
             "thumbnail_url": self.thumbnail_url,
             "preview_url": self.preview_url,
+            "subtitle_url": self.subtitle_url,
             "is_deleted": self.is_deleted,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
