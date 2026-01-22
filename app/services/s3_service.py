@@ -185,6 +185,31 @@ class S3Service:
             logger.error(f"S3 다운로드 URL 생성 실패: {e}")
             raise Exception(f"다운로드 URL 생성 실패: {str(e)}")
 
+    def generate_presigned_url_sync(self, s3_key: str, expires_in: int = 3600) -> str:
+        """
+        파일 다운로드용 Presigned URL 생성 (동기 버전)
+        - 모델 property에서 사용
+        """
+        try:
+            if not self.s3_client:
+                return f"https://{self.bucket_name}.s3.amazonaws.com/{s3_key}?mock=true"
+            
+            url = self.s3_client.generate_presigned_url(
+                'get_object',
+                Params={
+                    'Bucket': self.bucket_name,
+                    'Key': s3_key,
+                    'ResponseCacheControl': 'max-age=3600'
+                },
+                ExpiresIn=expires_in,
+                HttpMethod='GET'
+            )
+            return url
+        except ClientError as e:
+            logger.error(f"S3 Presigned URL 생성 실패: {e}")
+            from app.core.config import settings
+            return f"{settings.BACKEND_BASE_URL}/library/library-items/file/{s3_key}"
+
     async def delete_file(self, s3_key: str) -> bool:
         """
         S3에서 파일 삭제

@@ -177,10 +177,23 @@ class LibraryItem(Base):
 
     @property
     def file_url(self):
-        """S3 파일 프록시 URL 생성"""
-        # 백엔드 프록시를 통해 파일 제공 (IRSA 인증 문제 우회)
-        from app.core.config import settings
-        return f"{settings.BACKEND_BASE_URL}/library/library-items/file/{self.s3_key}"
+        """S3 Presigned URL 생성 (Range 요청 지원)"""
+        from app.services.s3_service import s3_service
+        import asyncio
+        try:
+            # 동기 컨텍스트에서 비동기 함수 호출
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # 이미 이벤트 루프가 실행 중이면 직접 URL 생성
+                return s3_service.generate_presigned_url_sync(self.s3_key)
+            else:
+                return loop.run_until_complete(
+                    s3_service.generate_presigned_download_url(self.s3_key, expires_in=3600)
+                )
+        except Exception:
+            # fallback: 프록시 URL
+            from app.core.config import settings
+            return f"{settings.BACKEND_BASE_URL}/library/library-items/file/{self.s3_key}"
 
     @property
     def thumbnail_url(self):
