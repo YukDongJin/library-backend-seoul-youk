@@ -609,6 +609,101 @@ async def generate_presigned_url(
         )
 
 
+@router.post(
+    "/{item_id}/generate-title",
+    response_model=SuccessResponse[dict],
+    summary="AI 제목 생성",
+    description="동영상 내용을 분석하여 AI로 제목을 생성합니다."
+)
+async def generate_title_with_ai(
+    item_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+) -> SuccessResponse[dict]:
+    """
+    AI 제목 생성 API
+    - Step Functions Express를 호출하여 Rekognition + Bedrock으로 제목 생성
+    - 동영상의 썸네일 이미지를 분석하여 제목 생성
+    """
+    try:
+        user_id, username = await resolve_current_user(db, current_user)
+        
+        # 아이템 조회
+        item = await library_item_crud.get(db, id=item_id)
+        
+        if not item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="라이브러리 아이템을 찾을 수 없습니다"
+            )
+        
+        # 소유자 확인
+        if str(item.user_id) != str(user_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="이 아이템에 대한 권한이 없습니다"
+            )
+        
+        # 동영상인지 확인
+        if item.type.value != 'video':
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="동영상 아이템만 AI 제목 생성이 가능합니다"
+            )
+        
+        # 썸네일이 있는지 확인
+        if not item.s3_thumbnail_key:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="썸네일이 아직 생성되지 않았습니다. 잠시 후 다시 시도해주세요."
+            )
+        
+        # Step Functions Express 호출 (동기)
+        sfn_client = boto3.client('stepfunctions', region_name=settings.AWS_REGION)
+        
+        import json
+        response = sfn_client.start_sync_execution(
+            stateMachineArn=settings.AI_TITLE_GENERATOR_STATE_MACHINE_ARN,
+            input=json.dumps({
+                'bucket': settings.S3_BUCKET_NAME,
+                'thumbnail_key': item.s3_thumbnail_key,
+                'item_id': str(item.id)
+            })
+        )
+        
+        # 결과 파싱
+        if response['status'] == 'SUCCEEDED':
+            output = json.loads(response['output'])
+            generated_title = output.get('generated_title', '')
+            
+            logger.info(f"AI 제목 생성 성공: {generated_title} (아이템: {item_id}, 사용자: {username})")
+            
+            return SuccessResponse(
+                data={
+                    'generated_title': generated_title,
+                    'item_id': item_id,
+                    'labels': output.get('labels', [])
+                },
+                message="AI 제목이 성공적으로 생성되었습니다"
+            )
+        else:
+            error_msg = response.get('error', 'Unknown error')
+            logger.error(f"AI 제목 생성 실패: {error_msg}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"AI 제목 생성 중 오류가 발생했습니다: {error_msg}"
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"AI 제목 생성 중 오류: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="AI 제목 생성 중 오류가 발생했습니다"
+        )
+
+
 @router.get(
     "/file/{s3_key:path}",
     summary="S3 파일 프록시",
