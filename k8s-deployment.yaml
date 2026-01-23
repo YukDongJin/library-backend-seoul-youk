@@ -53,6 +53,8 @@ spec:
           value: "https://api.aws11.shop"
         - name: VIDEO_PREVIEW_STATE_MACHINE_ARN
           value: "arn:aws:states:ap-northeast-2:324547056370:stateMachine:Preview_thumbnail_library"
+        - name: AI_TITLE_GENERATOR_STATE_MACHINE_ARN
+          value: "arn:aws:states:ap-northeast-2:324547056370:stateMachine:Title_stepfunction"
         - name: S3_REGION
           value: "ap-northeast-2"
         # OpenTelemetry (Jaeger 트레이싱)

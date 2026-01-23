@@ -622,8 +622,8 @@ async def generate_title_with_ai(
 ) -> SuccessResponse[dict]:
     """
     AI 제목 생성 API
-    - Step Functions Express를 호출하여 Rekognition + Bedrock으로 제목 생성
-    - 동영상의 썸네일 이미지를 분석하여 제목 생성
+    - Step Functions (Standard)를 호출하여 Rekognition Video + Bedrock으로 제목 생성
+    - 동영상 전체를 분석하여 라벨 추출 후 제목 생성
     """
     try:
         user_id, username = await resolve_current_user(db, current_user)
@@ -651,48 +651,31 @@ async def generate_title_with_ai(
                 detail="동영상 아이템만 AI 제목 생성이 가능합니다"
             )
         
-        # 썸네일이 있는지 확인
-        if not item.s3_thumbnail_key:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="썸네일이 아직 생성되지 않았습니다. 잠시 후 다시 시도해주세요."
-            )
-        
-        # Step Functions Express 호출 (동기)
+        # Step Functions Standard 호출 (비동기 - 동영상 분석은 시간이 걸림)
         sfn_client = boto3.client('stepfunctions', region_name=settings.AWS_REGION)
         
         import json
-        response = sfn_client.start_sync_execution(
+        response = sfn_client.start_execution(
             stateMachineArn=settings.AI_TITLE_GENERATOR_STATE_MACHINE_ARN,
             input=json.dumps({
                 'bucket': settings.S3_BUCKET_NAME,
-                'thumbnail_key': item.s3_thumbnail_key,
+                'key': item.s3_key,
                 'item_id': str(item.id)
             })
         )
         
-        # 결과 파싱
-        if response['status'] == 'SUCCEEDED':
-            output = json.loads(response['output'])
-            generated_title = output.get('generated_title', '')
-            
-            logger.info(f"AI 제목 생성 성공: {generated_title} (아이템: {item_id}, 사용자: {username})")
-            
-            return SuccessResponse(
-                data={
-                    'generated_title': generated_title,
-                    'item_id': item_id,
-                    'labels': output.get('labels', [])
-                },
-                message="AI 제목이 성공적으로 생성되었습니다"
-            )
-        else:
-            error_msg = response.get('error', 'Unknown error')
-            logger.error(f"AI 제목 생성 실패: {error_msg}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"AI 제목 생성 중 오류가 발생했습니다: {error_msg}"
-            )
+        execution_arn = response['executionArn']
+        logger.info(f"AI 제목 생성 Step Functions 시작: {execution_arn} (아이템: {item_id}, 사용자: {username})")
+        
+        return SuccessResponse(
+            data={
+                'execution_arn': execution_arn,
+                'item_id': item_id,
+                'status': 'STARTED',
+                'message': 'AI 제목 생성이 시작되었습니다. 동영상 분석에 1-2분 정도 소요됩니다.'
+            },
+            message="AI 제목 생성이 시작되었습니다"
+        )
         
     except HTTPException:
         raise
