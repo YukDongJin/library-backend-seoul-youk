@@ -2,7 +2,7 @@
 # 라이브러리 아이템 관련 API 엔드포인트
 
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Header
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import (
@@ -27,6 +27,13 @@ from botocore.config import Config
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def verify_internal_api_key(x_internal_api_key: Optional[str] = Header(None)) -> bool:
+    """내부 서비스 API 키 검증"""
+    if x_internal_api_key and x_internal_api_key == settings.INTERNAL_API_KEY:
+        return True
+    return False
 
 
 async def resolve_current_user(db: AsyncSession, current_user: Optional[User]):
@@ -372,12 +379,44 @@ async def update_library_item(
     *,
     db: AsyncSession = Depends(get_db),
     item_in: LibraryItemUpdate,
-    current_user: Optional[User] = Depends(get_current_user_optional)
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    x_internal_api_key: Optional[str] = Header(None)
 ) -> SuccessResponse[LibraryItemResponse]:
     """
     라이브러리 아이템 수정 API
+    - 내부 서비스(Lambda)에서 X-Internal-API-Key 헤더로 인증 가능
     """
     try:
+        # 내부 API 키 인증 확인
+        is_internal_service = verify_internal_api_key(x_internal_api_key)
+        
+        if is_internal_service:
+            # 내부 서비스 호출: 아이템 직접 조회 후 수정
+            logger.info(f"내부 서비스에서 아이템 수정 요청: {item_id}")
+            item = await library_item_crud.get(db, id=item_id)
+            if not item:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="라이브러리 아이템을 찾을 수 없습니다"
+                )
+            
+            # 직접 업데이트
+            if item_in.name is not None:
+                item.name = item_in.name
+            if item_in.visibility is not None:
+                item.visibility = item_in.visibility
+            
+            await db.commit()
+            await db.refresh(item)
+            
+            logger.info(f"내부 서비스 아이템 수정 완료: {item.name}")
+            
+            return SuccessResponse(
+                data=LibraryItemResponse.from_orm(item),
+                message="라이브러리 아이템이 성공적으로 수정되었습니다"
+            )
+        
+        # 일반 사용자 인증
         user_id, username = await resolve_current_user(db, current_user)
 
         # 아이템 수정

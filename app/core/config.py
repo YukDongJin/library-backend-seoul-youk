@@ -62,6 +62,9 @@ class Settings(BaseSettings):
     # AWS Step Functions 설정 (AI 제목 생성용)
     AI_TITLE_GENERATOR_STATE_MACHINE_ARN: str = ""
     
+    # 내부 서비스 API 키 (Lambda에서 백엔드 호출 시 사용)
+    INTERNAL_API_KEY: str = "fproject-internal-service-key-2024"
+    
     # 백엔드 기본 URL (파일 프록시용)
     BACKEND_BASE_URL: str = "https://api.aws11.shop"
     
