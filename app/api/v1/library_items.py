@@ -651,10 +651,37 @@ async def generate_title_with_ai(
                 detail="동영상 아이템만 AI 제목 생성이 가능합니다"
             )
         
-        # Step Functions Standard 호출 (비동기 - 동영상 분석은 시간이 걸림)
+        # Step Functions 클라이언트 생성
         sfn_client = boto3.client('stepfunctions', region_name=settings.AWS_REGION)
         
+        # 중복 실행 방지: 같은 item_id로 실행 중인 Step Functions가 있는지 확인
         import json
+        try:
+            running_executions = sfn_client.list_executions(
+                stateMachineArn=settings.AI_TITLE_GENERATOR_STATE_MACHINE_ARN,
+                statusFilter='RUNNING',
+                maxResults=100
+            )
+            
+            for execution in running_executions.get('executions', []):
+                # 실행 중인 Step Functions의 입력값 확인
+                exec_detail = sfn_client.describe_execution(
+                    executionArn=execution['executionArn']
+                )
+                exec_input = json.loads(exec_detail.get('input', '{}'))
+                
+                if exec_input.get('item_id') == str(item.id):
+                    logger.warning(f"이미 실행 중인 AI 제목 생성이 있습니다: {execution['executionArn']}")
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="이미 AI 제목 생성이 진행 중입니다. 잠시 후 다시 시도해주세요."
+                    )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning(f"중복 실행 체크 중 오류 (무시하고 진행): {e}")
+        
+        # Step Functions Standard 호출 (비동기 - 동영상 분석은 시간이 걸림)
         response = sfn_client.start_execution(
             stateMachineArn=settings.AI_TITLE_GENERATOR_STATE_MACHINE_ARN,
             input=json.dumps({
