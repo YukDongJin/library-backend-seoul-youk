@@ -38,7 +38,7 @@ spec:
         - name: USE_SECRETS_MANAGER
           value: "true"
         - name: DB_SECRET_NAME
-          value: "database"
+          value: "one-rds-credentials"
         - name: AWS_REGION
           value: "ap-northeast-2"
         - name: S3_BUCKET_NAME
