@@ -110,7 +110,7 @@ if settings.USE_SECRETS_MANAGER:
         settings.DB_HOST = db_secrets.get("host", settings.DB_HOST)
         settings.DB_PORT = int(db_secrets.get("port", settings.DB_PORT))
         settings.DB_NAME = db_secrets.get("dbname", settings.DB_NAME)
-        settings.DB_USER = db_secrets.get("dbuser", settings.DB_USER)
+        settings.DB_USER = db_secrets.get("username", settings.DB_USER)  # Secret Manager 키: username
         settings.DB_PASSWORD = db_secrets.get("password", settings.DB_PASSWORD)
         print("✅ DB 정보 로드 완료")
     else:
