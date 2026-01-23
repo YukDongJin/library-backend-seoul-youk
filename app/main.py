@@ -13,6 +13,11 @@ from datetime import datetime
 import logging
 import sys
 
+# OpenTelemetry imports
+from app.core.tracing import setup_tracing
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
 # SQLAlchemy 테이블 생성을 위한 import
 from sqlalchemy import create_engine
 from app.database.models_config import Base
@@ -61,6 +66,11 @@ async def lifespan(app: FastAPI):
     """
     # 시작 시 실행
     logger.info("🚀 FastAPI 애플리케이션 시작")
+    
+    # OpenTelemetry 트레이싱 초기화
+    setup_tracing("library-backend")
+    HTTPXClientInstrumentor().instrument()
+    logger.info("✅ OpenTelemetry Instrumentation 완료")
     
     # 데이터베이스 연결 테스트
     db_connected = await test_connection()
@@ -202,6 +212,9 @@ app.include_router(
     api_router,
     prefix="/library"
 )
+
+# FastAPI Instrumentation (OpenTelemetry)
+FastAPIInstrumentor.instrument_app(app)
 
 
 # 개발 환경에서만 실행되는 코드

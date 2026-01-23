@@ -55,6 +55,13 @@ spec:
           value: "arn:aws:states:ap-northeast-2:324547056370:stateMachine:Preview_thumbnail_library"
         - name: S3_REGION
           value: "ap-northeast-2"
+        # OpenTelemetry (Jaeger 트레이싱)
+        - name: OTEL_SERVICE_NAME
+          value: "library-backend"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://jaeger.istio-system.svc.cluster.local:4317"
+        - name: APP_VERSION
+          value: "1.0.0"
         resources:
           requests:
             memory: "256Mi"
