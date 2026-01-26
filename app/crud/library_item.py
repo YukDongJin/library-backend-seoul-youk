@@ -200,6 +200,10 @@ class CRUDLibraryItem(CRUDBase[LibraryItem, LibraryItemCreate, LibraryItemUpdate
         # 메인 파일 삭제
         if item.s3_key:
             await s3_service.delete_file(item.s3_key)
+            # 코덱 변환 파일도 삭제 (_h264 버전)
+            if item.s3_key.endswith('.mp4'):
+                h264_key = item.s3_key.replace('.mp4', '_h264.mp4')
+                await s3_service.delete_file(h264_key)
         
         # 프리뷰 파일 삭제 (있는 경우)
         if item.s3_preview_key:
