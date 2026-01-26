@@ -14,12 +14,12 @@ import redis
 
 logger = logging.getLogger(__name__)
 
-# Redis 클라이언트 초기화
+# Redis 클라이언트 초기화 (ElastiCache Serverless는 TLS 필수)
 redis_client = None
 if settings.REDIS_URL:
     try:
         redis_client = redis.from_url(
-            f"redis://{settings.REDIS_URL}",
+            f"rediss://{settings.REDIS_URL}",  # rediss:// = TLS 사용
             decode_responses=True,
             socket_timeout=5,
             socket_connect_timeout=5
