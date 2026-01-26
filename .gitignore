@@ -28,3 +28,4 @@ dist-ssr
 # ArgoCD/monitoring alb 설정 파일 (Git에 올리면 안됨)
 argocd/
 monitoring-ingress.yaml
+ingress.yaml

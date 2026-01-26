@@ -212,6 +212,10 @@ class CRUDLibraryItem(CRUDBase[LibraryItem, LibraryItemCreate, LibraryItemUpdate
         # 자막 파일 삭제 (있는 경우)
         if item.s3_subtitle_key:
             await s3_service.delete_file(item.s3_subtitle_key)
+            # 번역본이면 원본도 삭제
+            if '_translated.vtt' in item.s3_subtitle_key:
+                original_key = item.s3_subtitle_key.replace('_translated.vtt', '.vtt')
+                await s3_service.delete_file(original_key)
         
         # Transcribe 결과 파일 삭제 (있는 경우)
         if item.s3_transcribe_key:
