@@ -65,6 +65,10 @@ class Settings(BaseSettings):
     # 내부 서비스 API 키 (Lambda에서 백엔드 호출 시 사용)
     INTERNAL_API_KEY: str = "fproject-internal-service-key-2024"
     
+    # Redis 캐싱 설정 (ElastiCache)
+    REDIS_URL: str = ""
+    REDIS_TTL: int = 3000  # Presigned URL 캐시 TTL (50분, URL 만료 1시간보다 짧게)
+    
     # 백엔드 기본 URL (파일 프록시용)
     BACKEND_BASE_URL: str = "https://api.aws11.shop"
     

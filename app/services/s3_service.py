@@ -1,5 +1,5 @@
 # 📁 app/services/s3_service.py
-# AWS S3 파일 업로드 서비스 (IRSA 사용)
+# AWS S3 파일 업로드 서비스 (IRSA 사용) + Redis 캐싱
 
 import boto3
 from botocore.config import Config
@@ -10,8 +10,25 @@ from typing import Optional, Dict, Any
 from botocore.exceptions import ClientError, NoCredentialsError
 from app.core.config import settings
 import logging
+import redis
 
 logger = logging.getLogger(__name__)
+
+# Redis 클라이언트 초기화
+redis_client = None
+if settings.REDIS_URL:
+    try:
+        redis_client = redis.from_url(
+            f"redis://{settings.REDIS_URL}",
+            decode_responses=True,
+            socket_timeout=5,
+            socket_connect_timeout=5
+        )
+        redis_client.ping()
+        logger.info(f"✅ Redis 연결 성공: {settings.REDIS_URL}")
+    except Exception as e:
+        logger.warning(f"⚠️ Redis 연결 실패, 캐싱 비활성화: {e}")
+        redis_client = None
 
 
 class S3Service:
@@ -153,7 +170,7 @@ class S3Service:
         expires_in: int = 3600
     ) -> str:
         """
-        파일 다운로드용 Presigned URL 생성
+        파일 다운로드용 Presigned URL 생성 (Redis 캐싱 적용)
         
         Args:
             s3_key: S3 파일 키
@@ -167,6 +184,17 @@ class S3Service:
                 # 개발 환경에서 더미 URL 반환
                 return f"https://{self.bucket_name}.s3.amazonaws.com/{s3_key}?mock=true"
             
+            # Redis 캐시 확인
+            cache_key = f"presigned:{s3_key}"
+            if redis_client:
+                try:
+                    cached_url = redis_client.get(cache_key)
+                    if cached_url:
+                        logger.debug(f"캐시 히트: {s3_key}")
+                        return cached_url
+                except Exception as e:
+                    logger.warning(f"Redis 조회 실패: {e}")
+            
             # Presigned URL 생성 (IRSA 세션 토큰 자동 포함)
             url = self.s3_client.generate_presigned_url(
                 'get_object',
@@ -179,6 +207,14 @@ class S3Service:
                 HttpMethod='GET'
             )
             
+            # Redis에 캐시 저장 (TTL: 50분)
+            if redis_client:
+                try:
+                    redis_client.setex(cache_key, settings.REDIS_TTL, url)
+                    logger.debug(f"캐시 저장: {s3_key}")
+                except Exception as e:
+                    logger.warning(f"Redis 저장 실패: {e}")
+            
             return url
             
         except ClientError as e:
@@ -187,12 +223,23 @@ class S3Service:
 
     def generate_presigned_url_sync(self, s3_key: str, expires_in: int = 3600) -> str:
         """
-        파일 다운로드용 Presigned URL 생성 (동기 버전)
+        파일 다운로드용 Presigned URL 생성 (동기 버전, Redis 캐싱 적용)
         - 모델 property에서 사용
         """
         try:
             if not self.s3_client:
                 return f"https://{self.bucket_name}.s3.amazonaws.com/{s3_key}?mock=true"
+            
+            # Redis 캐시 확인
+            cache_key = f"presigned:{s3_key}"
+            if redis_client:
+                try:
+                    cached_url = redis_client.get(cache_key)
+                    if cached_url:
+                        logger.debug(f"캐시 히트 (sync): {s3_key}")
+                        return cached_url
+                except Exception as e:
+                    logger.warning(f"Redis 조회 실패: {e}")
             
             url = self.s3_client.generate_presigned_url(
                 'get_object',
@@ -204,6 +251,15 @@ class S3Service:
                 ExpiresIn=expires_in,
                 HttpMethod='GET'
             )
+            
+            # Redis에 캐시 저장 (TTL: 50분)
+            if redis_client:
+                try:
+                    redis_client.setex(cache_key, settings.REDIS_TTL, url)
+                    logger.debug(f"캐시 저장 (sync): {s3_key}")
+                except Exception as e:
+                    logger.warning(f"Redis 저장 실패: {e}")
+            
             return url
         except ClientError as e:
             logger.error(f"S3 Presigned URL 생성 실패: {e}")

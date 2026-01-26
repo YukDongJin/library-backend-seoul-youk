@@ -57,6 +57,9 @@ spec:
           value: "arn:aws:states:ap-northeast-2:324547056370:stateMachine:Title_stepfunction"
         - name: S3_REGION
           value: "ap-northeast-2"
+        # Redis 캐싱 (ElastiCache)
+        - name: REDIS_URL
+          value: "fproject-redis-zeg5e2.serverless.apn2.cache.amazonaws.com:6379"
         # OpenTelemetry (Jaeger 트레이싱)
         - name: OTEL_SERVICE_NAME
           value: "library-backend"
