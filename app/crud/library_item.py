@@ -225,6 +225,34 @@ class CRUDLibraryItem(CRUDBase[LibraryItem, LibraryItemCreate, LibraryItemUpdate
         if item.s3_transcribe_key:
             await s3_service.delete_file(item.s3_transcribe_key)
         
+        # Step Functions 실패 시에도 관련 파일 삭제 시도 (DB에 키가 없는 경우)
+        if item.s3_key and item.s3_key.endswith('.mp4'):
+            # 원본 키에서 예상 경로 생성
+            base_path = item.s3_key.rsplit('/', 1)[0]  # user_id/library/2026/01
+            filename = item.s3_key.rsplit('/', 1)[1].replace('.mp4', '')  # uuid
+            
+            # preview 폴더 (DB에 없으면 예상 경로로 삭제 시도)
+            if not item.s3_preview_key:
+                preview_path = base_path.replace('/library/', '/preview/')
+                await s3_service.delete_file(f"{preview_path}/{filename}.mp4")
+            
+            # thumbnail 폴더
+            if not item.s3_thumbnail_key:
+                thumbnail_path = base_path.replace('/library/', '/thumbnail/')
+                # 썸네일은 .0000000.jpg 형식
+                await s3_service.delete_file(f"{thumbnail_path}/{filename}.0000000.jpg")
+            
+            # subtitle 폴더
+            if not item.s3_subtitle_key:
+                subtitle_path = base_path.replace('/library/', '/subtitle/')
+                await s3_service.delete_file(f"{subtitle_path}/{filename}.vtt")
+                await s3_service.delete_file(f"{subtitle_path}/{filename}_translated.vtt")
+            
+            # transcribe 폴더
+            if not item.s3_transcribe_key:
+                transcribe_path = base_path.replace('/library/', '/transcribe/')
+                await s3_service.delete_file(f"{transcribe_path}/subtitle-{item_id}.json")
+        
         if soft_delete:
             return await self.soft_delete(db, id=item_id)
         else:
