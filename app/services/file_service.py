@@ -62,9 +62,9 @@ class FileService:
         # 파일 크기 제한 (바이트)
         self.size_limits = {
             ItemType.image: 50 * 1024 * 1024,      # 50MB
-            ItemType.video: 500 * 1024 * 1024,     # 500MB
+            ItemType.video: 2 * 1024 * 1024 * 1024,  # 2GB
             ItemType.document: 100 * 1024 * 1024,  # 100MB
-            ItemType.file: 1024 * 1024 * 1024,     # 1GB
+            ItemType.file: 2 * 1024 * 1024 * 1024,   # 2GB
         }
 
     def detect_mime_type(self, filename: str) -> str:
