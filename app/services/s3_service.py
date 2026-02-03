@@ -142,7 +142,7 @@ class S3Service:
                     {"Content-Type": content_type},
                     {"x-amz-meta-user-id": user_id},
                     {"x-amz-meta-original-filename": filename},
-                    ["content-length-range", 1, 500 * 1024 * 1024]  # 1B ~ 500MB
+                    ["content-length-range", 1, 2 * 1024 * 1024 * 1024]  # 1B ~ 2GB
                 ],
                 ExpiresIn=expires_in
             )
